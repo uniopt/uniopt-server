@@ -1,10 +1,12 @@
 import os
 import sysconfig
+import urllib.request
 
+# checking the os and the architecture of the host
 platform = sysconfig.get_platform()
-# curl command which contacts github api to get the release response about E+,
-# will be processed in find_url_asset() and find_link()
-curl_c = 'curl "https://api.github.com/repos/NREL/EnergyPlus/releases/latest"'
+# request to github api getting the release response about E+,
+# will be processed in construct_links()
+api_call = urllib.request.urlopen('https://api.github.com/repos/NREL/EnergyPlus/releases/latest')
 # getting the current directory for the downloaded file installation and turning window path
 # to unix path ( \ -> / )
 current_dir = os.path.dirname(os.path.realpath(__file__)).replace('\\', '/') + '/'
@@ -13,52 +15,46 @@ exe_dir = ''
 
 file_name = ''
 
-
-def find_url_asset():
-    if "win" in platform:
-        return 'findstr "browser_download_url"'
-    else:
-        return "grep browser_download_url"
+links = {}
 
 
-def find_link():
-    if "win-amd64" == platform:
-        return 'findstr "Windows-x86_64.exe"'
-    elif "win32" == platform:
-        return 'findstr "Windows-i386.exe"'
-    elif "linux-x86_64" == platform:
-        return 'grep "[.]sh"'
-    elif "macos" in  platform:
-        return 'grep "Darwin-x86_64[.]dmg"'
+def construct_links():
+    global links
+    response = api_call.read().decode("utf-8")
+    response = response.split(',')
+    all_links = []
+    for asset in response:
+        if "browser_download_url" in asset:
+            all_links.append(asset)
+    for link in all_links:
+        link = link.replace('"', '')
+        link = link.replace('}', '')
+        link = link.replace(']', '')
+        link = link.split(':', 1)
+        if ".dmg" in link[1]:
+            links['macos'] = link[1]
+        elif "Windows-x86_64.exe" in link[1]:
+            links['win64'] = link[1]
+        elif "Windows-i386.exe" in link[1]:
+            links['win32'] = link[1]
+        elif ".sh" in link[1]:
+            links['linux'] = link[1]
 
 
-def get_link():
-    if "win" in platform:
-        return find_link()
-    else:
-        return "cut -d '\"' -f 4"
-
-
-def construct_link_c():
-    command = curl_c + ' | ' + find_url_asset() + ' | ' + find_link() + ' | ' + get_link()
-    return command
-
-
-def run_link_c(command):
-    os.system(command + " > tmp")
-    output = open('tmp', 'r').read()
-    os.remove("tmp")
-    if "win" in platform:
-        output = output.split('\"')
-        output = output[3]
-    return output
-
-
-def download(link):
+def download():
     global file_name
-    file_name = link.split('/')[-1]
-    command = "curl -fLO %s " % link
-    os.system(command)
+    if "win-amd64" == platform:
+        file_name = links['win64'].split('/')[-1]
+        local_filename, headers = urllib.request.urlretrieve(links['win64'], current_dir+file_name)
+    elif "win32" == platform:
+        file_name = links['win32'].split('/')[-1]
+        local_filename, headers = urllib.request.urlretrieve(links['win32'], current_dir+file_name)
+    elif "linux-x86_64" == platform:
+        file_name = links['linux'].split('/')[-1]
+        # local_filename, headers = urllib.request.urlretrieve(links['linux'], current_dir+file_name)
+    elif "macos" in  platform:
+        file_name = links['macos'].split('/')[-1]
+        local_filename, headers = urllib.request.urlretrieve(links['macos'], current_dir+file_name)
 
 
 def install():
@@ -95,17 +91,13 @@ def silent_linux_install():
     EnergyPlus will be installed in [/home/$username$/EnergyPlus]
     """
     global exe_dir
-    get_home = "cd ~ | echo $PWD"
-    os.system(get_home + " > tmp")
-    get_home = open('tmp', 'r').read()
-    os.remove("tmp")
+    homedir = os.path.expanduser("~")
 
-    install_dir = "%a/EnergyPlus" % get_home
-    mkdir = "mkdir %a" % install_dir
+    install_dir = "%s/EnergyPlus" % homedir
+    mkdir = "mkdir %s" % install_dir
     os.system(mkdir)
-    exe_dir = install_dir + file_name
-
-    run = "echo -e \"y\n%s\" | ./%s" % (install_dir, exe_dir)
+    exe_dir = current_dir + "Energy*.sh"
+    run = "echo \"y\\n%s\" | ./%s" % (install_dir, file_name)
     os.system(run)
 
 
@@ -119,11 +111,9 @@ def install_path():
 
 
 def main():
-    command = construct_link_c()
-    link = run_link_c(command)
-    download(link)
+    construct_links()
+    download()
     install()
-    return install_path()
 
 
 if __name__ == "__main__":
