@@ -3,6 +3,11 @@ from eppy.modeleditor import IDF
 from eppy.idf_helpers import getidfobjectlist
 from collections import OrderedDict
 from EPinterface.esoReader import esoreader as eso
+import sysconfig
+import os
+
+platform = sysconfig.get_platform()
+install_dir = ''
 
 
 class EnergyPlusHelper:
@@ -11,9 +16,9 @@ class EnergyPlusHelper:
 
     def __init__(self,
                  idf_path,
-                 idd_path=None,
+                 output_path,
                  weather_path=None,
-                 output_path=None,
+                 idd_path=None,
                  ):
         """ New instance of the `EnergyPlusHelper` class
 
@@ -34,17 +39,23 @@ class EnergyPlusHelper:
         >>> ep = EnergyPlusHelper(idf_path="path to idf",
         >>>                         idd_path="path to idd",weather_path="path to weather")
         """
+        global platform, install_dir
+        if "win" in platform:
+            install_dir = "C:/EnergyPlus"
+        elif "linux" in platform:
+            homedir = os.path.expanduser("~")
+            install_dir = os.path.join(homedir, "EnergyPlus")
+        elif "mac" in platform:
+            install_dir = ""
+
         self.idf_path = idf_path
-        self.idd_path = idd_path
-        # TODO: handle the weather file path
-        # self.weather_path = "/mnt/c/EnergyPlusV9-1-0/WeatherData/USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw"
-        self.weather_path = "C:/EnergyPlusV9-1-0/WeatherData/USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw"
+        self.idd_path = idd_path or os.path.join(install_dir, "Energy+.idd")
+        # TODO: handle the weather file path, for testing I'm using random one
+        wpath = os.path.join(install_dir, "WeatherData", "USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw")
+        self.weather_path = weather_path or wpath
         self.output_path = output_path
         self.run_filename = "in.idf"
-        # IDF.setiddname(idd_path) if self.idf_file else 1
-        # TODO : get the path of E+ install as the default .idd is needed.
-        # IDF.setiddname("/mnt/d/F/uniopt/EP/Energy+.idd")
-        IDF.setiddname("D:/F/uniopt/EP/Energy+.idd")
+        IDF.setiddname(self.idd_path)
         self.idf = IDF(self.idf_path, self.weather_path)
 
     def get_all_objects(self):
@@ -130,8 +141,8 @@ class EnergyPlusHelper:
 
         Examples
         ----------
-        >>> ep = EnergyPlusHelper(idf_path="D:/F/uniopt/EP/singleZonePurchAir_template.idf",
-        >>>                         idd_path="D:/F/uniopt/EP/E+.idd",weather_path="D:/F/uniopt/EP/in.epw")
+        >>> ep = EnergyPlusHelper(idf_path="path to idf",
+        >>>                         idd_path="path to idd", weather_path="path to weather")
         >>> ep.set_field_val(obj_name=['BUILDING','MATERIAL'], fld_name=['North_Axis', 'Thickness'], val=[32.,0.02])
 
         """
@@ -175,10 +186,8 @@ class EnergyPlusHelper:
         # cmd += " " + self.run_filename
         # os.system(cmd)
         # self.idf.run(weather="/mnt/c/EnergyPlusV9-1-0/WeatherData/USA_"
-        # TODO: weather file path will be required per run or at least list them to choose
-        #  , of course people won't simulate with any weather file :D
-        self.idf.run(weather="C:/EnergyPlusV9-1-0/WeatherData/USA_"
-                             "CA_San.Francisco.Intl.AP.724940_TMY3.epw", output_directory=self.output_path)
+
+        self.idf.run(weather=self.weather_path, output_directory=self.output_path)
 
     def get_results(self):
         """ returns the output:variable data with the simulation values in a dictionary

@@ -9,7 +9,11 @@ platform = sysconfig.get_platform()
 api_call = urllib.request.urlopen('https://api.github.com/repos/NREL/EnergyPlus/releases/latest')
 # getting the current directory for the downloaded file installation and turning window path
 # to unix path ( \ -> / )
-current_dir = os.path.dirname(os.path.realpath(__file__)).replace('\\', '/') + '/'
+current_dir = os.path.dirname(os.path.realpath(__file__)).replace('\\', '/')
+
+install_dir = ''
+
+version = ''
 
 exe_dir = ''
 
@@ -42,25 +46,30 @@ def construct_links():
 
 
 def download():
-    global file_name
+    global file_name, version
     if "win-amd64" == platform:
         file_name = links['win64'].split('/')[-1]
-        local_filename, headers = urllib.request.urlretrieve(links['win64'], current_dir+file_name)
+        local_filename, headers = urllib.request.urlretrieve(links['win64'], os.path.join(current_dir, file_name))
     elif "win32" == platform:
         file_name = links['win32'].split('/')[-1]
-        local_filename, headers = urllib.request.urlretrieve(links['win32'], current_dir+file_name)
+        local_filename, headers = urllib.request.urlretrieve(links['win32'], os.path.join(current_dir, file_name))
     elif "linux-x86_64" == platform:
         file_name = links['linux'].split('/')[-1]
-        # local_filename, headers = urllib.request.urlretrieve(links['linux'], current_dir+file_name)
+        local_filename, headers = urllib.request.urlretrieve(links['linux'], os.path.join(current_dir, file_name))
     elif "macos" in  platform:
         file_name = links['macos'].split('/')[-1]
-        local_filename, headers = urllib.request.urlretrieve(links['macos'], current_dir+file_name)
+        local_filename, headers = urllib.request.urlretrieve(links['macos'], os.path.join(current_dir, file_name))
+    version = file_name.split('-')[1]
 
 
 def install():
+    global install_dir
     if "win" in platform:
+        install_dir = "C:/EnergyPlus"
         return silent_win_install()
     elif "linux-x86_64" == platform:
+        homedir = os.path.expanduser("~")
+        install_dir = os.path.join(homedir, "EnergyPlus")
         return silent_linux_install()
     elif "macos" in platform:
         return silent_mac_install()
@@ -74,9 +83,10 @@ def silent_win_install():
     EnergyPlus will be installed in [C:/EnergyPlusVX-X-X]
 
     """
-    global exe_dir
+    global exe_dir, file_name
     exe_dir = current_dir + file_name
-    command = "%s /S" % exe_dir
+    command = "%s /S /D=%s \" " % (exe_dir, install_dir)
+    print(command)
     return os.system(command)
 
 
@@ -90,13 +100,10 @@ def silent_linux_install():
 
     EnergyPlus will be installed in [/home/$username$/EnergyPlus]
     """
-    global exe_dir
-    homedir = os.path.expanduser("~")
-
-    install_dir = "%s/EnergyPlus" % homedir
+    global exe_dir, install_dir
     mkdir = "mkdir %s" % install_dir
     os.system(mkdir)
-    exe_dir = current_dir + "Energy*.sh"
+    exe_dir = os.path.join(current_dir, file_name)
     run = "echo \"y\\n%s\" | ./%s" % (install_dir, file_name)
     os.system(run)
 
@@ -107,7 +114,11 @@ def silent_mac_install():
 
 
 def install_path():
-    return exe_dir
+    return install_dir
+
+
+def get_version():
+    return version
 
 
 def main():
