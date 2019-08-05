@@ -104,7 +104,7 @@ def silent_linux_install():
     mkdir = "mkdir %s" % install_dir
     os.system(mkdir)
     exe_dir = os.path.join(current_dir, file_name)
-    run = "echo \"y\\n%s\" | ./%s" % (install_dir, file_name)
+    run = "echo -e \"y\\n%s\" | ./%s" % (install_dir, file_name)
     os.system(run)
 
 

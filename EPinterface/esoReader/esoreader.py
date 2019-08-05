@@ -143,10 +143,74 @@ class EsoFile(object):
             df.index = index
         return df
 
+    def _sep_by_freq(self):
+        frequency = set()
+        combined = {key: [self.dd.variables[key], self.data[key]] for key in self.dd.variables}
+        for key in self.dd.variables:
+            out_var = self.dd.variables[key]
+            frequency.add(out_var[0])
+
+        seprated_by_freq = {}
+        for key in frequency:
+            ind = []
+            for val in combined.values():
+                if val[0][0] == key:
+                    firstlist = val[0][1:]
+                    split = firstlist[0].split(':')
+                    final_list = [len(split)]
+                    final_list.extend(split)
+                    final_list.extend(firstlist[1:])
+                    ind.append([final_list, val[1]])
+
+            seprated_by_freq[key] = ind
+
+        return seprated_by_freq
+
+    def _sep_by_cat(self, combined, indexes):
+        newcombined = {}
+
+        for mast_key in combined:
+
+            flag = False
+            # daily, hourly, timestep
+            frequency = set()
+            freq = combined[mast_key]
+            for freq_var in freq:
+                # each variable
+                if freq_var[0][0] >= indexes:
+                    frequency.add(freq_var[0][1])
+            if not any(frequency):
+                newcombined[mast_key] = freq
+                continue
+
+            seprated_by_cat = {}
+            for key in frequency:
+                ind = []
+                other = []
+                for val in freq:
+                    if val[0][0] > indexes:
+                        flag = True
+                    if val[0][0] < indexes:
+                        other.append(val)
+                    if val[0][1] == key and val[0][0] >= indexes:
+                        firstlist = [val[0][0]] + val[0][2:]
+                        ind.append([firstlist, val[1]])
+
+                seprated_by_cat[key] = ind
+                if any(other):
+                    seprated_by_cat["SELF"] = other
+            if flag:
+                newcombined[mast_key] = self._sep_by_cat(seprated_by_cat, indexes+1)
+            else:
+                newcombined[mast_key] = seprated_by_cat
+
+        return newcombined
+
     def get_vars(self):
         # TODO: know which variable output from which Day simulation
-        combined = {key: [self.dd.variables[key], self.data[key]] for key in self.dd.variables}
-        return combined
+
+        separated_by_freq = self._sep_by_freq()
+        return self._sep_by_cat(separated_by_freq, 1)
 
     def _read_reporting_frequency(self, line):
         reporting_frequency = None
