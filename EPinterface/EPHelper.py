@@ -77,7 +77,25 @@ class EnergyPlusHelper:
             for (k, v) in one_obj:
                 dict_obj[k] = v
             objects.append(dict_obj)
-        return objects
+        return self._sep_by_key(objects)
+
+    def _sep_by_key(self, objects):
+        frequency = set()
+        for each in objects:
+            frequency.add(each['key'])
+
+        seprated_by_freq = {}
+        for mast_key in frequency:
+            ind = []
+            for val in objects:
+                if 'key' in val:
+                    if val['key'] == mast_key:
+                        del val['key']
+                        ind.append(val)
+            if len(ind) == 1:
+                ind = ind[0]
+            seprated_by_freq[mast_key] = ind
+        return seprated_by_freq
 
     def get_object_fields(self, obj_name):
         """ returns the list of all object fields
@@ -101,11 +119,13 @@ class EnergyPlusHelper:
                 fields.append({field: getattr(obj, field)})
         return fields
 
-    def get_field_val(self, obj_name, fld_name):
+    def get_field_val(self, obj_key, obj_name, fld_name):
         """ get multiple fields of multiple objects at once
 
         Parameters
         ----------
+        obj_obj : list
+            list of the objects keys
         obj_name : list
             list of the objects names
         fld_name : list
@@ -119,19 +139,22 @@ class EnergyPlusHelper:
 
         """
         fields = []
-        for obj_name, fld_name in zip(obj_name, fld_name):
-            # TODO: multiple objects same name?
-            obj = self.idf.idfobjects[obj_name]
-            for Oneobj in obj:
-                fields.append(getattr(Oneobj, fld_name))
-
+        for obj_key,obj_name, fld_name in zip(obj_key, obj_name, fld_name):
+            objects = self.idf.idfobjects[obj_key]
+            for each in objects:
+                if each.Name == obj_name or len(objects) == 1:
+                    fields.append(getattr(each, fld_name))
         return fields
 
-    def set_field_val(self, obj_name, fld_name, val):
-        """ set multiple fields of multiple objects at once
+    def set_field_val(self, obj_key, obj_name, fld_name, val):
+        """ set multiple fields of multiple objects at once the usage of keys and name is
+            due to the fact that some Objects share the same key but different names.
+            If the object doesn't share a key with another object obj_name shall be empty.
 
         Parameters
         ----------
+        obj_obj : list
+            list of the objects keys
         obj_name : list
             list of the objects names
         fld_name : list
@@ -143,15 +166,15 @@ class EnergyPlusHelper:
         ----------
         >>> ep = EnergyPlusHelper(idf_path="path to idf",
         >>>                         idd_path="path to idd", weather_path="path to weather")
-        >>> ep.set_field_val(obj_name=['BUILDING','MATERIAL'], fld_name=['North_Axis', 'Thickness'], val=[32.,0.02])
-
+        >>> ep.set_field_val(obj_key=['BUILDING','Material'],obj_name=['','A1 - 1 IN STUCCO'],
+                             fld_name=['North_Axis', 'Thickness'], val=[32.,0.02])
         """
-        for obj_name, fld_name, val in zip(obj_name, fld_name, val):
-            objects = self.idf.idfobjects[obj_name]
-            # Loop to handle multiple objects of the same object
-            # TODO: multiple objects same name?
-            for obj in objects:
-                setattr(obj, fld_name, val)
+        for obj_key,obj_name, fld_name, val in zip(obj_key, obj_name, fld_name, val):
+            objects = self.idf.idfobjects[obj_key]
+            for each in objects:
+                if each.Name == obj_name or len(objects) == 1:
+                    setattr(each, fld_name, val)
+
 
     def set_output_path(self, output_path):
         """
