@@ -8,6 +8,7 @@ import os
 
 platform = sysconfig.get_platform()
 install_dir = ''
+output = None
 
 
 class EnergyPlusHelper:
@@ -209,8 +210,9 @@ class EnergyPlusHelper:
         # cmd += " " + self.run_filename
         # os.system(cmd)
         # self.idf.run(weather="/mnt/c/EnergyPlusV9-1-0/WeatherData/USA_"
-
+        global output
         self.idf.run(weather=self.weather_path, output_directory=self.output_path)
+        output = self.get_results()
 
     def get_results(self):
         """ returns the output:variable data with the simulation values in a dictionary
@@ -222,5 +224,28 @@ class EnergyPlusHelper:
         """
         path_to_eso = self.output_path + '/eplusout.eso'
         dd = eso.read_from_path(path_to_eso)
-
-        return dd.get_vars()
+        output = dd.get_vars()
+        return output
+    
+    def get_output_var(self, index):
+        """
+        get_output_var [summary]
+        
+        Parameters
+        ----------
+        index : [type]
+            [description]
+        
+        Returns
+        -------
+        [type]
+            [description]
+        """
+        global output
+        vars = []
+        for each in index:
+            index1,index2,index3 = each.split('&')
+            for each in output[index1][index2]:
+                if each[0][1] == index3:
+                    vars.append(each[1])
+        return vars
