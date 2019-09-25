@@ -18,7 +18,7 @@ class EnergyPlusHelper:
     def __init__(self,
                  idf_path,
                  output_path,
-                 weather_path=None,
+                 weather_path,
                  idd_path=None,
                  ep_exe=None
                  ):

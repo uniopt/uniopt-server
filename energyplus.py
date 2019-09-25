@@ -16,16 +16,19 @@ class EPStart(Resource):
         global ep
         response = request.get_json()
         idf_path = response['idf_path']
+        w_path = response['weather_path']
         output_path = response['output_path'] if 'output_path' in response else os.path.dirname(idf_path)
         exe_path = response['exe_path'] if 'exe_path' in response else None
         if exe_path:
             ep = EnergyPlusHelper(idf_path="%s" % idf_path,
                         output_path="%s/out" % output_path,
                         ep_exe="%s" % exe_path,
+                        weather_path=w_path
                         )
         else:
             ep = EnergyPlusHelper(idf_path="%s" % idf_path,
                         output_path="%s/out" % output_path,
+                        weather_path=w_path
                         )
         res ={}
         res['objects'] = ep.get_all_objects()

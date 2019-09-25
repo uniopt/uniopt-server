@@ -2,12 +2,15 @@
 from flask import Flask, request, make_response, jsonify
 from flask.json import jsonify
 from flask_restful import Resource, Api
+from flask_cors import CORS
 import unioptapi
+import sys
 # from EvoGA_API import *
 from deapAPI import *
 from energyplus import *
 app = Flask(__name__)
 api = Api(app)
+cors = CORS(app)
 
 
 class ApiRoot(Resource):
@@ -46,4 +49,7 @@ api.add_resource(InitGA, '/GA/initialize')
 api.add_resource(EvolveGA, '/GA/evolve')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # import logging
+    # logging.basicConfig(filename='error.log',level=logging.DEBUG)
+    port = sys.argv[1]
+    app.run(host='127.0.0.1', port=port)
