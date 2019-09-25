@@ -20,6 +20,7 @@ class EnergyPlusHelper:
                  output_path,
                  weather_path=None,
                  idd_path=None,
+                 ep_exe=None
                  ):
         """ New instance of the `EnergyPlusHelper` class
 
@@ -41,18 +42,21 @@ class EnergyPlusHelper:
         >>>                         idd_path="path to idd",weather_path="path to weather")
         """
         global platform, install_dir
-        if "win" in platform:
-            install_dir = "C:/EnergyPlus"
-        elif "linux" in platform:
-            homedir = os.path.expanduser("~")
-            install_dir = os.path.join(homedir, "EnergyPlus")
-        elif "mac" in platform:
-            install_dir = ""
-
+        if not ep_exe:
+            if "win" in platform:
+                install_dir = "C:/EnergyPlus"
+            elif "linux" in platform:
+                homedir = os.path.expanduser("~")
+                install_dir = os.path.join(homedir, "EnergyPlus")
+            elif "mac" in platform:
+                install_dir = ""
+        else:
+            install_dir = ep_exe
         self.idf_path = idf_path
         self.idd_path = idd_path or os.path.join(install_dir, "Energy+.idd")
         # TODO: handle the weather file path, for testing I'm using random one
-        wpath = os.path.join(install_dir, "WeatherData", "USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw")
+        # wpath = os.path.join(install_dir, "WeatherData", "USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw")
+        wpath = os.path.join(install_dir, "WeatherData", "/mnt/D/F/uniopt/uniopt-server/IND_New.Delhi.421820_ISHRAE.epw")
         self.weather_path = weather_path or wpath
         self.output_path = output_path
         self.run_filename = "in.idf"
@@ -78,12 +82,15 @@ class EnergyPlusHelper:
             for (k, v) in one_obj:
                 dict_obj[k] = v
             objects.append(dict_obj)
-        return self._sep_by_key(objects)
+        objects  = self._sep_by_key(objects)
+        objects = self._sep_by_name(objects)
+        return objects
 
     def _sep_by_key(self, objects):
         frequency = set()
         for each in objects:
-            frequency.add(each['key'])
+            if(not 'Output:' in each['key']):
+                frequency.add(each['key'])
 
         seprated_by_freq = {}
         for mast_key in frequency:
@@ -97,6 +104,35 @@ class EnergyPlusHelper:
                 ind = ind[0]
             seprated_by_freq[mast_key] = ind
         return seprated_by_freq
+
+    def _sep_by_name(self, objects):
+        final = {}
+        for key in objects.items():
+            if isinstance(key[1],list):
+                master = {}
+                name =""
+                for item in key[1]:
+                    name = ""
+                    ind = {}
+                    if 'Name' in item:
+                        name = item.pop('Name')
+                        ind = item
+                    elif 'Zone_Name' in item:
+                        name = item.pop('Zone_Name')
+                        ind = item
+                    master[name] = ind
+                    
+                final[key[0]] = master if name != "" else key[1]
+            else:
+                item = {}
+                name = ""
+                if 'Name' in key[1]:
+                    ind = {}
+                    name = key[1].pop('Name')
+                    ind = key[1]
+                    item[name] = ind
+                final[key[0]] = key[1] if name=="" else item
+        return final
 
     def get_object_fields(self, obj_name):
         """ returns the list of all object fields
@@ -227,25 +263,31 @@ class EnergyPlusHelper:
         output = dd.get_vars()
         return output
     
-    def get_output_var(self, index):
+    def get_output_var(self, to_track):
         """
-        get_output_var [summary]
         
         Parameters
         ----------
-        index : [type]
-            [description]
+        to_track : list
+            a list of parmeters to get from the results indexed by the defined structure
         
         Returns
         -------
-        [type]
-            [description]
+        list
+            list of lists contains each value returned
+
+        Examples
+        --------
+        >>> get_output_var(to_track=[['RunPeriod','ROOM LIGHTS','Lights Electric Energy'],
+                    ['RunPeriod','ZONE1AIR','Zone Ideal Loads Supply Air Total Heating Energy']])
         """
         global output
         vars = []
-        for each in index:
-            index1,index2,index3 = each.split('&')
-            for each in output[index1][index2]:
-                if each[0][1] == index3:
-                    vars.append(each[1])
+        for index in to_track:
+            val = output
+            for z in zip(range(0,len(index)-1),index):
+                val = val[z[1]]
+            for j in val:
+                if j[0][1]==index[-1]:
+                    vars.append(j[1])
         return vars

@@ -65,8 +65,12 @@ class EvolveGA(Resource):
         url = url_output
         reqBack = requests.get(url)
         values = reqBack.json()['result']
-
-        res = sum(values)/len(values)
+        E_lights = values[0][0]*3
+        Q_heat = values[1][0]/0.44
+        Q_cool = values[2][0]/0.77
+        res = E_lights+Q_heat+Q_cool
+        print(res)
+        print("*****************")
         return res,
 
     def post(self):

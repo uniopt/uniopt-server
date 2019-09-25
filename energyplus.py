@@ -5,7 +5,7 @@ import requests
 import os
 
 ep = None
-modify_key, modify_name, modify_field, modify_min, modify_max, modify_step, output =  ([] for i in range(7))
+modify_key, modify_name, modify_field, modify_min, modify_max, modify_step, modify_patch, patches, output =  ([] for i in range(9))
 
 class EPInit(Resource):
     """
@@ -23,8 +23,16 @@ class EPInit(Resource):
         response = request.get_json()
         idf_path = response['idf_path']
         output_path = response['output_path'] if 'output_path' in response else os.path.dirname(idf_path)
-        ep = EnergyPlusHelper(idf_path="%s" % idf_path,
-                      output_path="%s/out" % output_path)
+        exe_path = response['exe_path'] if 'exe_path' in response else None
+        if exe_path:
+            ep = EnergyPlusHelper(idf_path="%s" % idf_path,
+                        output_path="%s/out" % output_path,
+                        ep_exe="%s" % exe_path,
+                        )
+        else:
+            ep = EnergyPlusHelper(idf_path="%s" % idf_path,
+                        output_path="%s/out" % output_path,
+                        )
         return make_response("", 200)
 
 class EPGetObjects(Resource):
@@ -50,7 +58,7 @@ class EPSetModifyObjects(Resource):
  objects in a json index key and name in 'modify_key' and 'modify_name' and fields in\
  'modify_field' and Min, Max in arrays"), 405)
     def post(self):
-        global modify_key, modify_name, modify_field, modify_min, modify_max, modify_step, GA_params
+        global modify_key, modify_name, modify_field, modify_min, modify_max, modify_step, modify_patch, patches
         data = request.get_json()
         modify_key = data['modify_key']
         modify_name = data['modify_name']
@@ -58,9 +66,21 @@ class EPSetModifyObjects(Resource):
         modify_min = data['modify_min']
         modify_max = data['modify_max']
         modify_step = data['modify_step']
+        modify_patch = data['modify_patch']
         url = "http://127.0.0.1:5000/GA/createparams"
-        data = {'modify_name': modify_name, 'modify_min': modify_min,
-         'modify_max': modify_max, 'modify_step': modify_step}
+        count = 0
+        data = {'modify_key': [], 'modify_name': [],'modify_field':[], 'modify_min': [],
+         'modify_max': [], 'modify_step': []}
+        for x in zip(modify_patch,modify_key,modify_name,modify_field,modify_min,modify_max,modify_step):
+            if count == x[0]:
+                patches.append(count)
+                data['modify_key'].append(x[1])
+                data['modify_name'].append(x[2])
+                data['modify_field'].append(x[3])
+                data['modify_min'].append(x[4])
+                data['modify_max'].append(x[5])
+                data['modify_step'].append(x[6])
+            count+=1
         response = requests.post(url, json=data)
 
         return make_response("", 200)
@@ -78,12 +98,17 @@ class EPModifyObjects(Resource):
  and values to add 'modify_val' with respect to the order"), 405)
     def post(self):
         global ep
-        global modify_key, modify_name, modify_field
+        global modify_key, modify_name, modify_field, modify_patch, patches
         if not modify_key:
             return make_response("You cannot modify objects before setting what to modify via\
                 [/EP/objects/set_modify]",403)
         response = request.get_json()
         modify_val = response['modify_val']
+        final_val = []
+        for i in range(0,len(modify_val)):
+            for j in range(i,len(modify_patch)):
+                if modify_patch[j]==patches[i]:
+                    final_val.append(modify_val[i])
         ep.set_field_val(modify_key, modify_name, modify_field, modify_val)
         return make_response("", 200)
 
@@ -109,7 +134,7 @@ class EPGetOutput(Resource):
             return make_response("You cannot get output value before setting what to track via\
                 [/EP/objects/set_output]",403)
         result = ep.get_output_var(output)
-        result = {'result':result[0]}
+        result = {'result':result}
         return make_response(jsonify(result), 200)
 
     def post(self):
