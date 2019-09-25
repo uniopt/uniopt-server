@@ -7,6 +7,33 @@ import os
 ep = None
 modify_key, modify_name, modify_field, modify_min, modify_max, modify_step, modify_patch, patches, output =  ([] for i in range(9))
 
+class EPStart(Resource):
+
+    def get(self):
+        return make_response(jsonify("Should call with a POST request with the idf\
+ path in the JSON body"), 405)
+    def post(self):
+        global ep
+        response = request.get_json()
+        idf_path = response['idf_path']
+        output_path = response['output_path'] if 'output_path' in response else os.path.dirname(idf_path)
+        exe_path = response['exe_path'] if 'exe_path' in response else None
+        if exe_path:
+            ep = EnergyPlusHelper(idf_path="%s" % idf_path,
+                        output_path="%s/out" % output_path,
+                        ep_exe="%s" % exe_path,
+                        )
+        else:
+            ep = EnergyPlusHelper(idf_path="%s" % idf_path,
+                        output_path="%s/out" % output_path,
+                        )
+        res ={}
+        res['objects'] = ep.get_all_objects()
+        ep.run_idf()
+        res['algo_params'] = ep.get_results()
+        return make_response(jsonify(res), 200)
+
+
 class EPInit(Resource):
     """
     api controller of the path [/EP/init] which gets the idf stucture into the memory

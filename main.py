@@ -34,6 +34,7 @@ class ApiVer(Resource):
 api.add_resource(ApiRoot, '/uniopt')
 api.add_resource(ApiVer, '/uniopt/api')
 api.add_resource(EPInit, '/EP/init')
+api.add_resource(EPStart, '/EP/start')
 api.add_resource(EPGetObjects, '/EP/objects/all')
 api.add_resource(EPSetModifyObjects, '/EP/objects/set_modify')
 api.add_resource(EPModifyObjects, '/EP/objects/modify')
